@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reflections — Checker</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#F4F1EC;--surface:#FFF;--border:#D6D0C4;--text:#2C2A26;--muted:#7A756B;--accent:#1B6B93;--accent-lt:#E8F1F5;--ok:#3A7D44;--ok-lt:#E6F2E8;--warn:#C4841D;--warn-lt:#FDF3E4;--err:#B33A3A;--err-lt:#FBEAEA}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh}
+.hdr{background:#1A2332;color:#E8E4DD;padding:14px 20px;position:sticky;top:0;z-index:100}
+.hdr-top{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.hdr h1{font-size:1.1rem;font-weight:600}.hdr .sub{font-size:.72rem;color:#8A9BB0;margin-top:1px}
+.nav-row{display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-top:10px;padding-bottom:4px}
+.nd{padding:3px 8px;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:.6rem;font-weight:600;border:1.5px solid #3A4556;color:#4A5568;background:transparent;cursor:pointer;transition:all .15s;white-space:nowrap}
+.nd:hover{border-color:#8A9BB0;color:#8A9BB0}
+.nd.done{background:var(--ok);border-color:var(--ok);color:#fff}
+.nd.skipped{background:var(--warn);border-color:var(--warn);color:#fff}
+.nd.active{border-color:var(--accent);color:#fff;background:var(--accent)}
+.progress-bar{height:4px;background:#2A3344;border-radius:2px;margin:8px 20px 0;overflow:hidden}
+.progress-fill{height:100%;background:var(--ok);transition:width .4s ease}
+.main{max-width:680px;margin:0 auto;padding:16px 16px 60px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:14px;display:none}
+.card.v{display:block}.card.done{display:block;padding:10px 18px;background:var(--ok-lt);border-color:var(--ok)}.card.done .body{display:none}
+.done-check{color:var(--ok);font-weight:600;font-size:.82rem;display:inline;margin-left:8px}
+.qn{font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:500;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+.qp{font-size:1rem;font-weight:600;margin-bottom:4px;line-height:1.5}
+.qp .note{font-weight:400;font-size:.88rem;color:var(--muted);display:block;margin-top:4px}
+.step{margin-bottom:16px;animation:fadeIn .3s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.step-label{font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+.input-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.input-row label{font-size:.9rem;font-weight:500;min-width:30px}
+.input-row input{font-family:'JetBrains Mono',monospace;font-size:1rem;padding:8px 12px;border:2px solid var(--border);border-radius:8px;width:70px;text-align:center}
+.input-row input:focus{outline:none;border-color:var(--accent)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:10px 20px;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:600;cursor:pointer;transition:all .15s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:#145A7A}
+.btn-next{background:var(--ok);color:#fff;margin-top:8px}.btn-next:hover{background:#2D6636}
+.fb{padding:10px 14px;border-radius:8px;font-size:.88rem;margin-top:10px;margin-bottom:10px;line-height:1.5}
+.fb.ok{background:var(--ok-lt);color:var(--ok);border:1px solid var(--ok)}
+.fb.warn{background:var(--warn-lt);color:var(--warn);border:1px solid var(--warn)}
+.fb.err{background:var(--err-lt);color:var(--err);border:1px solid var(--err)}
+.chip-zone{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+.chip{padding:10px 18px;border:2px solid var(--border);border-radius:10px;background:var(--surface);cursor:pointer;transition:all .18s;user-select:none;font-size:.92rem;font-weight:500}
+.chip:hover{border-color:var(--accent);background:var(--accent-lt);transform:translateY(-2px)}.chip:active{transform:scale(.95)}
+.chip.correct{border-color:var(--ok);background:var(--ok-lt);pointer-events:none}
+.chip.wrong{border-color:var(--err);background:var(--err-lt);animation:shake .4s}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+.locked{opacity:.35;pointer-events:none}
+.redirect-banner{background:#FFF3E0;border:2px solid #E65100;border-radius:10px;padding:16px 18px;margin:14px 0;font-size:.95rem;line-height:1.6;color:#BF360C}
+.btn-skip{background:var(--warn);color:#fff;margin-top:8px;font-size:.82rem;padding:8px 16px}.btn-skip:hover{background:#A56A10}
+.summary-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-top:20px}
+.summary-card h2{font-size:1.1rem;margin-bottom:12px}
+.summary-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:.9rem}
+.summary-row:last-child{border-bottom:none}
+</style>
+</head>
+<body>
+<div class="hdr">
+<div class="hdr-top"><div><h1>Reflections — Checker</h1><div class="sub">Geometry 1</div></div></div>
+<div class="nav-row" id="nav"></div>
+</div>
+<div class="progress-bar"><div class="progress-fill" id="pbar"></div></div>
+<div class="main" id="main"></div>
+<script>
+const PROBLEMS=[
+  {id:"P-1",type:"point",prompt:"Reflect M(3, 5) across the x-axis.",
+   points:[{name:"M'",ans:[3,-5]}],line:"x-axis",
+   hints:["The x-axis rule: (x, y) → (x, −y). The x stays, the y flips sign."]},
+  {id:"P-2",type:"point",prompt:"Reflect N(−2, 4) across the y-axis.",
+   points:[{name:"N'",ans:[2,4]}],line:"y-axis",
+   hints:["The y-axis rule: (x, y) → (−x, y). The y stays, the x flips sign."]},
+  {id:"P-3",type:"triangle",prompt:"Reflect △PQR across the x-axis.<br>P(1, 3), Q(4, 5), R(2, 1)",
+   points:[{name:"P'",ans:[1,-3]},{name:"Q'",ans:[4,-5]},{name:"R'",ans:[2,-1]}],line:"x-axis",
+   hints:["Apply (x, y) → (x, −y) to each point separately."]},
+  {id:"P-4",type:"triangle",prompt:"Reflect △STU across y = x.<br>S(2, 6), T(5, 3), U(1, 1)",
+   points:[{name:"S'",ans:[6,2]},{name:"T'",ans:[3,5]},{name:"U'",ans:[1,1]}],line:"y = x",
+   hints:["The y = x rule: (x, y) → (y, x). Swap the coordinates."]},
+  {id:"P-5",type:"point",prompt:"Reflect V(4, 1) across y = 3.",
+   points:[{name:"V'",ans:[4,5]}],line:"y = 3",
+   hints:["Rule: (x, y) → (x, 2c − y). Here c = 3, so y' = 2(3) − 1 = 5."]},
+  {id:"P-6",type:"point",prompt:"Reflect W(−1, 2) across x = 2.",
+   points:[{name:"W'",ans:[5,2]}],line:"x = 2",
+   hints:["Rule: (x, y) → (2c − x, y). Here c = 2, so x' = 2(2) − (−1) = 5."]},
+  {id:"P-7",type:"rule",prompt:"Pre-image: A(2, 5), B(4, 1).<br>Image: A'(2, −5), B'(4, −1).<br>Write the reflection rule.",
+   answer:"x-axis",ruleText:"(x, y) → (x, −y)",
+   options:["x-axis","y-axis","y = x","y = 2","x = 3"],
+   hints:["Look at what changed: x stayed the same, y flipped sign."]},
+  {id:"P-8",type:"rule",prompt:"Pre-image: D(1, 3), E(4, 6).<br>Image: D'(3, 1), E'(6, 4).<br>Write the reflection rule.",
+   answer:"y = x",ruleText:"(x, y) → (y, x)",
+   options:["x-axis","y-axis","y = x","x = 1","y = 3"],
+   hints:["Look at what changed: x and y swapped positions."]}
+];
+
+let current=0;
+let state=PROBLEMS.map(()=>({done:false,skipped:false,wrongCount:0}));
+
+function buildNav(){
+  const nav=document.getElementById("nav");
+  nav.innerHTML=PROBLEMS.map((p,i)=>`<button class="nd${i===current?' active':''}" onclick="go(${i})">${p.id}</button>`).join("");
+  const done=state.filter(s=>s.done||s.skipped).length;
+  document.getElementById("pbar").style.width=`${(done/PROBLEMS.length)*100}%`;
+}
+
+function go(i){current=i;render();}
+
+function render(){
+  buildNav();
+  const m=document.getElementById("main");
+  m.innerHTML="";
+  PROBLEMS.forEach((p,i)=>{
+    const s=state[i];
+    const card=document.createElement("div");
+    card.className=`card${i===current?" v":""}${s.done?" done":""}${s.skipped&&!s.done?" done":""}`;
+    if(s.done||s.skipped){
+      card.innerHTML=`<span class="qn">${p.id}</span> <span class="done-check">✓ ${s.skipped?"Redirected":"Complete"}</span>`;
+    } else if(i===current){
+      card.innerHTML=`<div class="qn">${p.id}</div><div class="qp">${p.prompt}</div><div class="body" id="body-${i}"></div>`;
+    }
+    m.appendChild(card);
+  });
+  if(state.every(s=>s.done||s.skipped)){showSummary();return;}
+  const body=document.getElementById(`body-${current}`);
+  if(!body)return;
+  const p=PROBLEMS[current];
+  if(p.type==="point"||p.type==="triangle"){buildCoordProblem(body,p,current);}
+  else if(p.type==="rule"){buildRuleProblem(body,p,current);}
+}
+
+function buildCoordProblem(body,p,idx){
+  const s=state[idx];
+  let html=`<div class="step"><div class="step-label">Enter reflected coordinates</div>`;
+  p.points.forEach((pt,pi)=>{
+    html+=`<div class="input-row">
+      <label>${pt.name}:</label>
+      <span>(</span><input type="text" id="ix-${idx}-${pi}" placeholder="x'" inputmode="numeric">
+      <span>,</span><input type="text" id="iy-${idx}-${pi}" placeholder="y'" inputmode="numeric"><span>)</span>
+    </div>`;
+  });
+  html+=`<button class="btn btn-primary" onclick="checkCoords(${idx})">Check</button>`;
+  html+=`<div id="fb-${idx}"></div></div>`;
+  body.innerHTML=html;
+  // focus first input
+  const first=document.getElementById(`ix-${idx}-0`);
+  if(first)first.focus();
+  // enter key
+  body.querySelectorAll("input").forEach(inp=>{
+    inp.addEventListener("keydown",e=>{if(e.key==="Enter")checkCoords(idx);});
+  });
+}
+
+function checkCoords(idx){
+  const p=PROBLEMS[idx];
+  const s=state[idx];
+  const fb=document.getElementById(`fb-${idx}`);
+  let allCorrect=true;
+  p.points.forEach((pt,pi)=>{
+    const xv=parseFloat(document.getElementById(`ix-${idx}-${pi}`).value);
+    const yv=parseFloat(document.getElementById(`iy-${idx}-${pi}`).value);
+    if(isNaN(xv)||isNaN(yv)||xv!==pt.ans[0]||yv!==pt.ans[1])allCorrect=false;
+  });
+  if(allCorrect){
+    fb.innerHTML=`<div class="fb ok">✓ Correct! ${p.points.map(pt=>`${pt.name} = (${pt.ans[0]}, ${pt.ans[1]})`).join(", ")}</div>
+      <button class="btn btn-next" onclick="advance(${idx})">Next →</button>`;
+  } else {
+    s.wrongCount++;
+    if(s.wrongCount>=3){
+      fb.innerHTML=`<div class="redirect-banner">✋ Bring your whiteboard to your teacher and show them this problem. It's okay to ask for help.</div>
+        <button class="btn btn-skip" onclick="skip(${idx})">Teacher helped — continue</button>`;
+    } else if(s.wrongCount===2){
+      fb.innerHTML=`<div class="fb warn">Not quite. ${p.hints[0]||"Check each coordinate carefully."}</div>`;
+    } else {
+      fb.innerHTML=`<div class="fb err">Check your work. Remember the coordinate rule for the ${p.line}.</div>`;
+    }
+  }
+}
+
+function buildRuleProblem(body,p,idx){
+  const s=state[idx];
+  let html=`<div class="step"><div class="step-label">Step 1: What is the line of reflection?</div><div class="chip-zone" id="chips-${idx}">`;
+  // shuffle options
+  const opts=[...p.options];
+  for(let i=opts.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[opts[i],opts[j]]=[opts[j],opts[i]];}
+  opts.forEach(o=>{html+=`<div class="chip" onclick="checkRule(${idx},'${o}',this)">${o}</div>`;});
+  html+=`</div><div id="fb-${idx}"></div></div>`;
+  body.innerHTML=html;
+}
+
+function checkRule(idx,chosen,el){
+  const p=PROBLEMS[idx];
+  const s=state[idx];
+  const fb=document.getElementById(`fb-${idx}`);
+  // reset previous wrong
+  document.querySelectorAll(`#chips-${idx} .chip.wrong`).forEach(c=>c.classList.remove("wrong"));
+
+  if(chosen===p.answer){
+    el.classList.add("correct");
+    fb.innerHTML=`<div class="fb ok">✓ Correct! Line of reflection: ${p.answer}<br>Rule: ${p.ruleText}</div>
+      <button class="btn btn-next" onclick="advance(${idx})">Next →</button>`;
+  } else {
+    s.wrongCount++;
+    el.classList.add("wrong");
+    if(s.wrongCount>=3){
+      fb.innerHTML=`<div class="redirect-banner">✋ Bring your whiteboard to your teacher and show them this problem. It's okay to ask for help.</div>
+        <button class="btn btn-skip" onclick="skip(${idx})">Teacher helped — continue</button>`;
+    } else if(s.wrongCount===2){
+      fb.innerHTML=`<div class="fb warn">${p.hints[0]||"Look at which coordinate changed and how."}</div>`;
+    } else {
+      fb.innerHTML=`<div class="fb err">That's not the line. Look at which coordinate changed — x, y, or both.</div>`;
+    }
+  }
+}
+
+function advance(idx){state[idx].done=true;current=findNext(idx);render();}
+function skip(idx){state[idx].skipped=true;current=findNext(idx);render();}
+
+function findNext(idx){
+  for(let i=idx+1;i<PROBLEMS.length;i++){if(!state[i].done&&!state[i].skipped)return i;}
+  for(let i=0;i<idx;i++){if(!state[i].done&&!state[i].skipped)return i;}
+  return idx;
+}
+
+function showSummary(){
+  const m=document.getElementById("main");
+  const first=state.filter(s=>s.done&&!s.skipped&&s.wrongCount===0).length;
+  const helped=state.filter(s=>s.skipped).length;
+  const retried=state.filter(s=>s.done&&!s.skipped&&s.wrongCount>0).length;
+  m.innerHTML+=`<div class="summary-card">
+    <h2>Session Complete</h2>
+    <div class="summary-row"><span>Correct on first try</span><span style="color:var(--ok);font-weight:600">${first} / ${PROBLEMS.length}</span></div>
+    <div class="summary-row"><span>Correct after retry</span><span style="color:var(--accent);font-weight:600">${retried}</span></div>
+    <div class="summary-row"><span>Needed teacher help</span><span style="color:var(--warn);font-weight:600">${helped}</span></div>
+    <p style="margin-top:16px;font-size:.88rem;color:var(--muted)">Record these numbers in your journal reflection.</p>
+  </div>`;
+}
+
+render();
+</script>
+</body>
+</html>
